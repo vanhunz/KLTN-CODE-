@@ -1,4 +1,4 @@
-const jwt = require('jsonwebtoken');
+const { verifyAccessToken } = require('../utils/token');
 
 const authMiddleware = (req, res, next) => {
     try {
@@ -14,10 +14,7 @@ const authMiddleware = (req, res, next) => {
             });
         }
 
-        const decoded = jwt.verify(
-            token,
-            process.env.JWT_SECRET || 'secret_key_tam_thoi',
-        );
+        const decoded = verifyAccessToken(token);
 
         req.user = decoded;
         return next();

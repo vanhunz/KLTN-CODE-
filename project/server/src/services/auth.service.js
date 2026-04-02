@@ -1,6 +1,6 @@
 const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
 const prisma = require('../config/prisma');
+const { signAccessToken } = require('../utils/token');
 
 const sanitizeUser = (user) => {
     const { passwordHash, ...userInfo } = user;
@@ -8,10 +8,8 @@ const sanitizeUser = (user) => {
 };
 
 const createToken = (user) =>
-    jwt.sign(
+    signAccessToken(
         { id: user.id, role: user.role?.name || null, email: user.email },
-        process.env.JWT_SECRET || 'secret_key_tam_thoi',
-        { expiresIn: '1d' },
     );
 
 const login = async (email, password) => {
@@ -225,8 +223,22 @@ const getDashboardData = async () => {
     };
 };
 
+const getCurrentUser = async (userId) => {
+    const user = await prisma.user.findUnique({
+        where: { id: Number(userId) },
+        include: { role: true },
+    });
+
+    if (!user) {
+        throw new Error('Nguoi dung khong ton tai');
+    }
+
+    return sanitizeUser(user);
+};
+
 module.exports = {
     login,
     register,
     getDashboardData,
+    getCurrentUser,
 };

@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { useAuth } from "../hooks/useAuth";
 
 const ShieldIcon = () => (
   <svg aria-hidden="true" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">
@@ -28,6 +29,7 @@ const EyeIcon = ({ visible }) => (
 
 export default function Register() {
   const navigate = useNavigate();
+  const { register } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [formData, setFormData] = useState({
@@ -82,26 +84,14 @@ export default function Register() {
         password: formData.password,
       };
 
-      const response = await fetch("http://localhost:3000/api/auth/register", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
-      });
-
-      const result = await response.json();
-
-      if (!response.ok || !result.success) {
-        throw new Error(result.message || "Đăng ký thất bại");
-      }
+      await register(payload);
 
       setSuccessMessage("Đăng ký thành công. Bạn sẽ được chuyển sang trang đăng nhập.");
       setTimeout(() => {
         navigate("/login");
       }, 1200);
     } catch (error) {
-      setErrorMessage(error.message);
+      setErrorMessage(error.message || "Đăng ký thất bại");
     } finally {
       setIsSubmitting(false);
     }
@@ -167,18 +157,18 @@ export default function Register() {
             </div>
 
             <div className="mb-10 flex rounded-lg bg-[var(--surface-container-low)] p-1">
-              <a
+              <Link
                 className="font-label flex-1 py-2.5 text-center text-sm font-medium text-[var(--on-surface-variant)] transition-all hover:text-[var(--on-surface)]"
-                href="/login"
+                to="/login"
               >
                 Login
-              </a>
-              <a
+              </Link>
+              <Link
                 className="font-label flex-1 rounded-md bg-white py-2.5 text-center text-sm font-semibold text-[var(--primary)] shadow-sm transition-all"
-                href="/register"
+                to="/register"
               >
                 Sign Up
-              </a>
+              </Link>
             </div>
 
             <form className="space-y-5" onSubmit={handleSubmit}>

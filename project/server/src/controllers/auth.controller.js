@@ -65,8 +65,22 @@ const getDashboard = async (req, res) => {
     }
 };
 
+const getProfile = async (req, res) => {
+    try {
+        const user = await authService.getCurrentUser(req.user.id);
+        res.status(200).json({
+            success: true,
+            message: 'Lay thong tin nguoi dung thanh cong',
+            data: { user },
+        });
+    } catch (error) {
+        res.status(404).json({ success: false, message: error.message });
+    }
+};
+
 module.exports = {
     loginUser,
     registerUser,
     getDashboard,
+    getProfile,
 };

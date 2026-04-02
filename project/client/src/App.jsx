@@ -4,17 +4,10 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Dashboard from "./pages/Admin/Dashboard";
 import Profile from "./pages/Profile";
-
-function getStoredAuth() {
-  try {
-    return JSON.parse(localStorage.getItem("authData") || "null");
-  } catch {
-    return null;
-  }
-}
+import { useAuth } from "./hooks/useAuth";
 
 function RequireRole({ role, children }) {
-  const authData = getStoredAuth();
+  const { authData } = useAuth();
   const currentRole = authData?.user?.role?.name;
 
   if (!authData?.token) {

@@ -1,5 +1,6 @@
 ﻿import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { useAuth } from "../hooks/useAuth";
 
 const GoogleIcon = () => (
   <svg aria-hidden="true" className="h-5 w-5" viewBox="0 0 24 24">
@@ -43,10 +44,11 @@ const ChipIcon = () => (
 
 export default function Login() {
   const navigate = useNavigate();
+  const { login } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
-    email: "admin@kltn.com",
-    password: "123456",
+    email: "",
+    password: "",
   });
   const [errorMessage, setErrorMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -69,25 +71,15 @@ export default function Login() {
     setIsSubmitting(true);
 
     try {
-      const response = await fetch("http://localhost:3000/api/auth/login", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(formData),
+      const result = await login({
+        email: formData.email.trim(),
+        password: formData.password,
       });
 
-      const result = await response.json();
-
-      if (!response.ok || !result.success) {
-        throw new Error(result.message || "Dang nhap that bai");
-      }
-
-      localStorage.setItem("authData", JSON.stringify(result.data));
-      const roleName = result.data?.user?.role?.name;
+      const roleName = result?.user?.role?.name;
       navigate(roleName === "ADMIN" ? "/admin/dashboard" : "/");
     } catch (error) {
-      setErrorMessage(error.message);
+      setErrorMessage(error.message || "Dang nhap that bai");
     } finally {
       setIsSubmitting(false);
     }
@@ -149,8 +141,8 @@ export default function Login() {
             </div>
 
             <div className="mb-10 flex rounded-lg bg-[var(--surface-container-low)] p-1">
-              <a className="font-label flex-1 rounded-md bg-white py-2.5 text-center text-sm font-semibold text-[var(--primary)] shadow-sm transition-all" href="/login">Login</a>
-              <a className="font-label flex-1 py-2.5 text-center text-sm font-medium text-[var(--on-surface-variant)] transition-all hover:text-[var(--on-surface)]" href="/register">Sign Up</a>
+              <Link className="font-label flex-1 rounded-md bg-white py-2.5 text-center text-sm font-semibold text-[var(--primary)] shadow-sm transition-all" to="/login">Login</Link>
+              <Link className="font-label flex-1 py-2.5 text-center text-sm font-medium text-[var(--on-surface-variant)] transition-all hover:text-[var(--on-surface)]" to="/register">Sign Up</Link>
             </div>
 
             <form className="space-y-6" onSubmit={handleSubmit}>
@@ -164,7 +156,6 @@ export default function Login() {
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
                   <label className="font-label block text-xs font-bold uppercase tracking-[0.22em] text-[var(--on-surface-variant)]" htmlFor="password">Password</label>
-                  <a className="font-label text-[11px] font-semibold text-[var(--primary)] hover:underline" href="#!">Forgot?</a>
                 </div>
                 <div className="relative">
                   <input id="password" name="password" type={showPassword ? "text" : "password"} placeholder="********" value={formData.password} onChange={handleChange} className="h-12 w-full rounded-md border-0 bg-[var(--surface-container-low)] px-4 py-2 pr-12 text-[var(--on-surface)] outline-none transition-all placeholder:text-[rgba(142,177,210,0.8)] focus:bg-white focus:ring-2 focus:ring-[rgba(0,89,182,0.2)]" />
