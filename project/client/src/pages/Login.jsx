@@ -156,6 +156,9 @@ export default function Login() {
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
                   <label className="font-label block text-xs font-bold uppercase tracking-[0.22em] text-[var(--on-surface-variant)]" htmlFor="password">Password</label>
+                  <Link to="/forgot-password" className="text-xs text-blue-600 hover:text-blue-800 font-semibold">
+                    Quên mật khẩu?
+                  </Link>
                 </div>
                 <div className="relative">
                   <input id="password" name="password" type={showPassword ? "text" : "password"} placeholder="********" value={formData.password} onChange={handleChange} className="h-12 w-full rounded-md border-0 bg-[var(--surface-container-low)] px-4 py-2 pr-12 text-[var(--on-surface)] outline-none transition-all placeholder:text-[rgba(142,177,210,0.8)] focus:bg-white focus:ring-2 focus:ring-[rgba(0,89,182,0.2)]" />

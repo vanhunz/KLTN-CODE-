@@ -408,3 +408,13 @@ model AiBuildItem {
 
     @@map("AI_Build_Items")
 }
+
+model EmailVerification {
+    id         Int      @id @default(autoincrement())
+    email      String
+    otp        String
+    expiredAt  DateTime @map("expired_at")
+    createdAt  DateTime @default(now()) @map("created_at")
+
+    @@map("Email_Verifications")
+}

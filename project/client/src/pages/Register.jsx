@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { useAuth } from "../hooks/useAuth";
+import { otpApi } from "../services/otp.api";
 
 const ShieldIcon = () => (
   <svg aria-hidden="true" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">
@@ -29,72 +29,152 @@ const EyeIcon = ({ visible }) => (
 
 export default function Register() {
   const navigate = useNavigate();
-  const { register } = useAuth();
+  const [step, setStep] = useState(1); // 1: gửi email, 2: register với OTP
+  const [email, setEmail] = useState('');
+  const [otp, setOtp] = useState('');
+  const [fullName, setFullName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [address, setAddress] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [formData, setFormData] = useState({
-    fullName: "",
-    email: "",
-    phone: "",
-    address: "",
-    password: "",
-    confirmPassword: "",
-  });
+  const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
   const [acceptedTerms, setAcceptedTerms] = useState(false);
-  const [errorMessage, setErrorMessage] = useState("");
-  const [successMessage, setSuccessMessage] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [otpTimer, setOtpTimer] = useState(0);
 
-  const handleChange = (event) => {
-    const { name, value } = event.target;
-    setFormData((current) => ({
-      ...current,
-      [name]: value,
-    }));
-  };
-
-  const handleSubmit = async (event) => {
-    event.preventDefault();
-    setErrorMessage("");
-    setSuccessMessage("");
-
-    if (!formData.fullName || !formData.email || !formData.password) {
-      setErrorMessage("Vui lòng nhập đầy đủ họ tên, email và mật khẩu.");
-      return;
-    }
-
-    if (formData.password !== formData.confirmPassword) {
-      setErrorMessage("Mật khẩu xác nhận không khớp.");
-      return;
-    }
-
-    if (!acceptedTerms) {
-      setErrorMessage("Bạn cần đồng ý điều khoản trước khi đăng ký.");
-      return;
-    }
-
-    setIsSubmitting(true);
+  // Step 1: Gửi OTP
+  const handleSendOtp = async (e) => {
+    e.preventDefault();
+    setErrorMessage('');
+    setSuccessMessage('');
+    setLoading(true);
 
     try {
-      const payload = {
-        fullName: formData.fullName.trim(),
-        email: formData.email.trim(),
-        phone: formData.phone.trim(),
-        address: formData.address.trim(),
-        password: formData.password,
-      };
+      // Validate email
+      if (!email.trim()) {
+        setErrorMessage('Vui lòng nhập email');
+        setLoading(false);
+        return;
+      }
 
-      await register(payload);
+      const emailRegex = /.+@.+\..+/;
+      if (!emailRegex.test(email)) {
+        setErrorMessage('Email không hợp lệ');
+        setLoading(false);
+        return;
+      }
 
-      setSuccessMessage("Đăng ký thành công. Bạn sẽ được chuyển sang trang đăng nhập.");
-      setTimeout(() => {
-        navigate("/login");
-      }, 1200);
-    } catch (error) {
-      setErrorMessage(error.message || "Đăng ký thất bại");
+      // Gửi OTP
+      const result = await otpApi.sendOtp(email);
+      setSuccessMessage(result.message || 'OTP đã được gửi tới email của bạn');
+      setStep(2);
+      setOtpTimer(300); // 5 phút = 300 giây
+
+      // Countdown timer
+      const interval = setInterval(() => {
+        setOtpTimer((prev) => {
+          if (prev <= 1) {
+            clearInterval(interval);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    } catch (err) {
+      setErrorMessage(err.message || 'Lỗi khi gửi OTP');
     } finally {
-      setIsSubmitting(false);
+      setLoading(false);
     }
+  };
+
+  // Step 2: Đăng ký với OTP
+  const handleRegister = async (e) => {
+    e.preventDefault();
+    setErrorMessage('');
+    setSuccessMessage('');
+    setLoading(true);
+
+    try {
+      // Validate
+      if (!otp.trim()) {
+        setErrorMessage('Vui lòng nhập OTP');
+        setLoading(false);
+        return;
+      }
+
+      if (!/^\d{6}$/.test(otp)) {
+        setErrorMessage('OTP phải là 6 số');
+        setLoading(false);
+        return;
+      }
+
+      if (!fullName.trim() || fullName.length < 2) {
+        setErrorMessage('Họ tên phải có ít nhất 2 ký tự');
+        setLoading(false);
+        return;
+      }
+
+      if (!phone.trim() || phone.length < 10) {
+        setErrorMessage('Số điện thoại không hợp lệ');
+        setLoading(false);
+        return;
+      }
+
+      if (!address.trim() || address.length < 5) {
+        setErrorMessage('Địa chỉ phải có ít nhất 5 ký tự');
+        setLoading(false);
+        return;
+      }
+
+      if (!password || password.length < 6) {
+        setErrorMessage('Mật khẩu phải có ít nhất 6 ký tự');
+        setLoading(false);
+        return;
+      }
+
+      if (password !== confirmPassword) {
+        setErrorMessage('Mật khẩu xác nhận không khớp');
+        setLoading(false);
+        return;
+      }
+
+      if (!acceptedTerms) {
+        setErrorMessage('Bạn cần đồng ý điều khoản trước khi đăng ký');
+        setLoading(false);
+        return;
+      }
+
+      // Gọi API register
+      const result = await otpApi.register({
+        email,
+        password,
+        otp,
+        fullName,
+        phone,
+        address,
+      });
+
+      setSuccessMessage(result.message || 'Đăng ký thành công! Bạn sẽ được chuyển sang trang đăng nhập.');
+
+      // Chuyển về trang login sau 2 giây
+      setTimeout(() => {
+        navigate('/login');
+      }, 2000);
+    } catch (err) {
+      setErrorMessage(err.message || 'Lỗi khi đăng ký');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Format timer
+  const formatTimer = () => {
+    const minutes = Math.floor(otpTimer / 60);
+    const seconds = otpTimer % 60;
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
   };
 
   return (
@@ -152,7 +232,7 @@ export default function Register() {
                 Create Account
               </h2>
               <p className="text-[var(--on-surface-variant)]">
-                Launch your hardware intelligence workspace.
+                {step === 1 ? 'Nhập email để nhận mã xác thực' : 'Hoàn tất thông tin đăng ký'}
               </p>
             </div>
 
@@ -171,182 +251,232 @@ export default function Register() {
               </Link>
             </div>
 
-            <form className="space-y-5" onSubmit={handleSubmit}>
-              <div className="space-y-1.5">
-                <label
-                  className="font-label block text-xs font-bold uppercase tracking-[0.22em] text-[var(--on-surface-variant)]"
-                  htmlFor="full-name"
-                >
-                  Full Name
-                </label>
-                <input
-                  id="full-name"
-                  name="fullName"
-                  type="text"
-                  placeholder="Nguyen Van A"
-                  value={formData.fullName}
-                  onChange={handleChange}
-                  className="h-12 w-full rounded-md border-0 bg-[var(--surface-container-low)] px-4 py-2 text-[var(--on-surface)] outline-none transition-all placeholder:text-[rgba(142,177,210,0.8)] focus:bg-white focus:ring-2 focus:ring-[rgba(0,89,182,0.2)]"
-                />
+            {errorMessage && (
+              <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+                {errorMessage}
               </div>
+            )}
 
-              <div className="space-y-1.5">
-                <label
-                  className="font-label block text-xs font-bold uppercase tracking-[0.22em] text-[var(--on-surface-variant)]"
-                  htmlFor="email"
-                >
-                  Email
-                </label>
-                <input
-                  id="email"
-                  name="email"
-                  type="email"
-                  placeholder="name@company.com"
-                  value={formData.email}
-                  onChange={handleChange}
-                  className="h-12 w-full rounded-md border-0 bg-[var(--surface-container-low)] px-4 py-2 text-[var(--on-surface)] outline-none transition-all placeholder:text-[rgba(142,177,210,0.8)] focus:bg-white focus:ring-2 focus:ring-[rgba(0,89,182,0.2)]"
-                />
+            {successMessage && (
+              <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
+                {successMessage}
               </div>
+            )}
 
-              <div className="space-y-1.5">
-                <label
-                  className="font-label block text-xs font-bold uppercase tracking-[0.22em] text-[var(--on-surface-variant)]"
-                  htmlFor="phone"
-                >
-                  Phone
-                </label>
-                <input
-                  id="phone"
-                  name="phone"
-                  type="text"
-                  placeholder="0123456789"
-                  value={formData.phone}
-                  onChange={handleChange}
-                  className="h-12 w-full rounded-md border-0 bg-[var(--surface-container-low)] px-4 py-2 text-[var(--on-surface)] outline-none transition-all placeholder:text-[rgba(142,177,210,0.8)] focus:bg-white focus:ring-2 focus:ring-[rgba(0,89,182,0.2)]"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <label
-                  className="font-label block text-xs font-bold uppercase tracking-[0.22em] text-[var(--on-surface-variant)]"
-                  htmlFor="address"
-                >
-                  Address
-                </label>
-                <input
-                  id="address"
-                  name="address"
-                  type="text"
-                  placeholder="Ho Chi Minh City"
-                  value={formData.address}
-                  onChange={handleChange}
-                  className="h-12 w-full rounded-md border-0 bg-[var(--surface-container-low)] px-4 py-2 text-[var(--on-surface)] outline-none transition-all placeholder:text-[rgba(142,177,210,0.8)] focus:bg-white focus:ring-2 focus:ring-[rgba(0,89,182,0.2)]"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <label
-                  className="font-label block text-xs font-bold uppercase tracking-[0.22em] text-[var(--on-surface-variant)]"
-                  htmlFor="register-password"
-                >
-                  Password
-                </label>
-                <div className="relative">
-                  <input
-                    id="register-password"
-                    name="password"
-                    type={showPassword ? "text" : "password"}
-                    placeholder="Create a secure password"
-                    value={formData.password}
-                    onChange={handleChange}
-                    className="h-12 w-full rounded-md border-0 bg-[var(--surface-container-low)] px-4 py-2 pr-12 text-[var(--on-surface)] outline-none transition-all placeholder:text-[rgba(142,177,210,0.8)] focus:bg-white focus:ring-2 focus:ring-[rgba(0,89,182,0.2)]"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword((current) => !current)}
-                    className="absolute right-3 top-3 text-[rgba(60,95,124,0.55)] transition-colors hover:text-[var(--on-surface)]"
-                    aria-label={showPassword ? "Hide password" : "Show password"}
+            {step === 1 ? (
+              <form className="space-y-5" onSubmit={handleSendOtp}>
+                <div className="space-y-1.5">
+                  <label
+                    className="font-label block text-xs font-bold uppercase tracking-[0.22em] text-[var(--on-surface-variant)]"
+                    htmlFor="email"
                   >
-                    <EyeIcon visible={showPassword} />
-                  </button>
-                </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <label
-                  className="font-label block text-xs font-bold uppercase tracking-[0.22em] text-[var(--on-surface-variant)]"
-                  htmlFor="confirm-password"
-                >
-                  Confirm Password
-                </label>
-                <div className="relative">
+                    Email
+                  </label>
                   <input
-                    id="confirm-password"
-                    name="confirmPassword"
-                    type={showConfirmPassword ? "text" : "password"}
-                    placeholder="Repeat your password"
-                    value={formData.confirmPassword}
-                    onChange={handleChange}
-                    className="h-12 w-full rounded-md border-0 bg-[var(--surface-container-low)] px-4 py-2 pr-12 text-[var(--on-surface)] outline-none transition-all placeholder:text-[rgba(142,177,210,0.8)] focus:bg-white focus:ring-2 focus:ring-[rgba(0,89,182,0.2)]"
+                    id="email"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="name@company.com"
+                    disabled={loading}
+                    className="h-12 w-full rounded-md border-0 bg-[var(--surface-container-low)] px-4 py-2 text-[var(--on-surface)] outline-none transition-all placeholder:text-[rgba(142,177,210,0.8)] focus:bg-white focus:ring-2 focus:ring-[rgba(0,89,182,0.2)] disabled:bg-gray-100"
                   />
-                  <button
-                    type="button"
-                    onClick={() => setShowConfirmPassword((current) => !current)}
-                    className="absolute right-3 top-3 text-[rgba(60,95,124,0.55)] transition-colors hover:text-[var(--on-surface)]"
-                    aria-label={showConfirmPassword ? "Hide confirm password" : "Show confirm password"}
-                  >
-                    <EyeIcon visible={showConfirmPassword} />
-                  </button>
                 </div>
-              </div>
 
-              <div className="flex items-start gap-3 py-1">
-                <input
-                  id="terms"
-                  type="checkbox"
-                  checked={acceptedTerms}
-                  onChange={(event) => setAcceptedTerms(event.target.checked)}
-                  className="mt-1 h-5 w-5 cursor-pointer rounded-sm border border-[var(--outline-variant)] bg-[var(--surface-container-low)] text-[var(--primary)] focus:ring-[rgba(0,89,182,0.2)]"
-                />
-                <label className="font-label text-sm leading-6 text-[var(--on-surface-variant)]" htmlFor="terms">
-                  I agree to the{" "}
-                  <a className="font-semibold text-[var(--on-surface)] hover:underline" href="#!">
-                    Terms of Service
-                  </a>{" "}
-                  and{" "}
-                  <a className="font-semibold text-[var(--on-surface)] hover:underline" href="#!">
-                    Privacy Policy
-                  </a>
-                  .
-                </label>
-              </div>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="font-headline liquid-sky-gradient h-14 w-full rounded-md text-lg font-bold text-white shadow-lg shadow-[rgba(0,89,182,0.2)] transition-all active:scale-[0.98] disabled:bg-gray-400"
+                >
+                  {loading ? 'Đang gửi...' : 'Gửi OTP'}
+                </button>
+              </form>
+            ) : (
+              <form className="space-y-5" onSubmit={handleRegister}>
+                <div className="space-y-1.5">
+                  <div className="flex justify-between mb-2">
+                    <label className="font-label block text-xs font-bold uppercase tracking-[0.22em] text-[var(--on-surface-variant)]">OTP</label>
+                    <span className="text-xs text-red-600 font-semibold">
+                      {otpTimer > 0 ? `Hết hạn: ${formatTimer()}` : 'OTP hết hạn'}
+                    </span>
+                  </div>
+                  <input
+                    type="text"
+                    value={otp}
+                    onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    placeholder="000000"
+                    maxLength="6"
+                    disabled={loading}
+                    className="h-12 w-full rounded-md border-0 bg-[var(--surface-container-low)] px-4 py-2 text-[var(--on-surface)] outline-none transition-all placeholder:text-[rgba(142,177,210,0.8)] focus:bg-white focus:ring-2 focus:ring-[rgba(0,89,182,0.2)] disabled:bg-gray-100 text-center text-2xl tracking-widest font-font-label"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Kiểm tra email để lấy OTP</p>
+                </div>
 
-              {errorMessage ? (
-                <p className="rounded-md bg-red-50 px-4 py-3 text-sm text-red-700">
-                  {errorMessage}
-                </p>
-              ) : null}
+                <div className="space-y-1.5">
+                  <label
+                    className="font-label block text-xs font-bold uppercase tracking-[0.22em] text-[var(--on-surface-variant)]"
+                    htmlFor="fullName"
+                  >
+                    Full Name
+                  </label>
+                  <input
+                    id="fullName"
+                    type="text"
+                    placeholder="Nguyen Van A"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    disabled={loading}
+                    className="h-12 w-full rounded-md border-0 bg-[var(--surface-container-low)] px-4 py-2 text-[var(--on-surface)] outline-none transition-all placeholder:text-[rgba(142,177,210,0.8)] focus:bg-white focus:ring-2 focus:ring-[rgba(0,89,182,0.2)] disabled:bg-gray-100"
+                  />
+                </div>
 
-              {successMessage ? (
-                <p className="rounded-md bg-green-50 px-4 py-3 text-sm text-green-700">
-                  {successMessage}
-                </p>
-              ) : null}
+                <div className="space-y-1.5">
+                  <label
+                    className="font-label block text-xs font-bold uppercase tracking-[0.22em] text-[var(--on-surface-variant)]"
+                    htmlFor="phone"
+                  >
+                    Phone Number
+                  </label>
+                  <input
+                    id="phone"
+                    type="tel"
+                    placeholder="0912345678"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
+                    disabled={loading}
+                    className="h-12 w-full rounded-md border-0 bg-[var(--surface-container-low)] px-4 py-2 text-[var(--on-surface)] outline-none transition-all placeholder:text-[rgba(142,177,210,0.8)] focus:bg-white focus:ring-2 focus:ring-[rgba(0,89,182,0.2)] disabled:bg-gray-100"
+                  />
+                </div>
 
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="font-headline liquid-sky-gradient h-14 w-full rounded-md text-lg font-bold text-white shadow-lg shadow-[rgba(0,89,182,0.2)] transition-all active:scale-[0.98]"
-              >
-                {isSubmitting ? "Đang đăng ký..." : "Create Workspace"}
-              </button>
-            </form>
+                <div className="space-y-1.5">
+                  <label
+                    className="font-label block text-xs font-bold uppercase tracking-[0.22em] text-[var(--on-surface-variant)]"
+                    htmlFor="address"
+                  >
+                    Address
+                  </label>
+                  <textarea
+                    id="address"
+                    placeholder="123 Main Street, City, Country"
+                    value={address}
+                    onChange={(e) => setAddress(e.target.value)}
+                    disabled={loading}
+                    rows="2"
+                    className="w-full rounded-md border-0 bg-[var(--surface-container-low)] px-4 py-2 text-[var(--on-surface)] outline-none transition-all placeholder:text-[rgba(142,177,210,0.8)] focus:bg-white focus:ring-2 focus:ring-[rgba(0,89,182,0.2)] disabled:bg-gray-100 resize-none"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label
+                    className="font-label block text-xs font-bold uppercase tracking-[0.22em] text-[var(--on-surface-variant)]"
+                    htmlFor="register-password"
+                  >
+                    Password
+                  </label>
+                  <div className="relative">
+                    <input
+                      id="register-password"
+                      type={showPassword ? "text" : "password"}
+                      placeholder="Create a secure password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      disabled={loading}
+                      className="h-12 w-full rounded-md border-0 bg-[var(--surface-container-low)] px-4 py-2 pr-12 text-[var(--on-surface)] outline-none transition-all placeholder:text-[rgba(142,177,210,0.8)] focus:bg-white focus:ring-2 focus:ring-[rgba(0,89,182,0.2)] disabled:bg-gray-100"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((current) => !current)}
+                      className="absolute right-3 top-3 text-[rgba(60,95,124,0.55)] transition-colors hover:text-[var(--on-surface)]"
+                      aria-label={showPassword ? "Hide password" : "Show password"}
+                    >
+                      <EyeIcon visible={showPassword} />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label
+                    className="font-label block text-xs font-bold uppercase tracking-[0.22em] text-[var(--on-surface-variant)]"
+                    htmlFor="confirm-password"
+                  >
+                    Confirm Password
+                  </label>
+                  <div className="relative">
+                    <input
+                      id="confirm-password"
+                      type={showConfirmPassword ? "text" : "password"}
+                      placeholder="Repeat your password"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      disabled={loading}
+                      className="h-12 w-full rounded-md border-0 bg-[var(--surface-container-low)] px-4 py-2 pr-12 text-[var(--on-surface)] outline-none transition-all placeholder:text-[rgba(142,177,210,0.8)] focus:bg-white focus:ring-2 focus:ring-[rgba(0,89,182,0.2)] disabled:bg-gray-100"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword((current) => !current)}
+                      className="absolute right-3 top-3 text-[rgba(60,95,124,0.55)] transition-colors hover:text-[var(--on-surface)]"
+                      aria-label={showConfirmPassword ? "Hide confirm password" : "Show confirm password"}
+                    >
+                      <EyeIcon visible={showConfirmPassword} />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3 py-1">
+                  <input
+                    id="terms"
+                    type="checkbox"
+                    checked={acceptedTerms}
+                    onChange={(event) => setAcceptedTerms(event.target.checked)}
+                    className="mt-1 h-5 w-5 cursor-pointer rounded-sm border border-[var(--outline-variant)] bg-[var(--surface-container-low)] text-[var(--primary)] focus:ring-[rgba(0,89,182,0.2)]"
+                  />
+                  <label className="font-label text-sm leading-6 text-[var(--on-surface-variant)]" htmlFor="terms">
+                    I agree to the{" "}
+                    <a className="font-semibold text-[var(--on-surface)] hover:underline" href="#!">
+                      Terms of Service
+                    </a>{" "}
+                    and{" "}
+                    <a className="font-semibold text-[var(--on-surface)] hover:underline" href="#!">
+                      Privacy Policy
+                    </a>
+                    .
+                  </label>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={loading || otpTimer === 0}
+                  className="font-headline liquid-sky-gradient h-14 w-full rounded-md text-lg font-bold text-white shadow-lg shadow-[rgba(0,89,182,0.2)] transition-all active:scale-[0.98] disabled:bg-gray-400"
+                >
+                  {loading ? 'Đang đăng ký...' : 'Create Workspace'}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setStep(1);
+                    setOtp('');
+                    setFullName('');
+                    setPhone('');
+                    setAddress('');
+                    setPassword('');
+                    setConfirmPassword('');
+                    setOtpTimer(0);
+                    setErrorMessage('');
+                    setSuccessMessage('');
+                  }}
+                  className="font-label w-full bg-gray-200 text-gray-800 py-3 rounded-md font-semibold hover:bg-gray-300 transition"
+                >
+                  Quay lại
+                </button>
+              </form>
+            )}
 
             <p className="mt-8 text-center text-sm text-[var(--on-surface-variant)]">
               Already have access?{" "}
-              <a className="font-semibold text-[var(--primary)] hover:underline" href="/login">
+              <Link className="font-semibold text-[var(--primary)] hover:underline" to="/login">
                 Sign in here
-              </a>
+              </Link>
               .
             </p>
           </div>
