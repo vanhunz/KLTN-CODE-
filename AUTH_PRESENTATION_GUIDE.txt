@@ -1,0 +1,280 @@
+SILICON CURATOR - AUTHENTICATION PRESENTATION GUIDE
+==================================================
+
+1) MUC TIEU HE THONG AUTH
+-------------------------
+He thong authentication cua project nay gom 3 chuc nang chinh:
+- Dang nhap (login)
+- Dang ky (register) co OTP qua email
+- Quen mat khau (forgot password) co OTP qua email
+
+He thong dung:
+- Node.js + Express o backend
+- Prisma ORM de lam viec voi MySQL
+- JWT de xac thuc dang nhap
+- bcryptjs de ma hoa mat khau
+- Nodemailer de gui OTP bang Gmail SMTP
+- React + React Router o frontend
+
+2) LUONG DANG NHAP
+------------------
+Dang nhap la quy trinh:
+- Nguoi dung nhap email va password
+- Backend kiem tra email co ton tai khong
+- Backend so sanh mat khau da bam voi bcrypt
+- Neu dung, backend tao JWT token
+- Frontend luu token va thong tin user vao AuthContext
+- Sau do chuyen huong den trang phu hop (Home, Profile, Dashboard)
+
+API chinh:
+- POST /api/auth/login
+- GET /api/auth/me
+
+3) LUONG DANG KY CO OTP
+-----------------------
+Dang ky duoc tach thanh 2 buoc:
+
+Buoc 1:
+- Nguoi dung nhap email
+- Frontend goi API de gui OTP
+- Backend tao OTP 6 chu so
+- OTP duoc luu vao bang Email_Verifications
+- OTP duoc gui vao email bang Nodemailer
+
+Buoc 2:
+- Nguoi dung nhap:
+  + OTP
+  + password
+  + fullName
+  + phone
+  + address
+- Backend kiem tra OTP dung va chua het han
+- Neu hop le, backend bam password bang bcrypt
+- Tao user moi trong bang Users
+- Xoa OTP da su dung
+
+API chinh:
+- POST /api/otp/send-otp
+- POST /api/otp/register
+
+4) LUONG QUEN MAT KHAU
+----------------------
+Quen mat khau cung gom 2 buoc:
+
+Buoc 1:
+- Nguoi dung nhap email
+- Backend kiem tra email co ton tai trong Users
+- Tao OTP reset 6 chu so
+- Luu OTP vao Email_Verifications
+- Gui email noi dung reset password
+
+Buoc 2:
+- Nguoi dung nhap:
+  + email
+  + otp
+  + newPassword
+- Backend kiem tra OTP dung va chua het han
+- Neu hop le, backend bam mat khau moi
+- Update password trong Users
+- Xoa OTP cu sau khi reset thanh cong
+
+API chinh:
+- POST /api/otp/forgot-password
+- POST /api/otp/reset-password
+
+5) GMAIL SMTP
+-------------
+He thong gui email bang Gmail SMTP voi cau hinh:
+- service: gmail
+- auth.user: EMAIL
+- auth.pass: APP_PASSWORD
+
+Bien moi truong da dung:
+- EMAIL = Vovanhuanhjhj@gmail.com
+- APP_PASSWORD = hatf ujpk ffax skka
+
+6) DATABASE CHINH
+-----------------
+Cac bang lien quan:
+- Users: luu thong tin tai khoan
+- Email_Verifications: luu OTP va han su dung
+- Roles: phan quyen user
+- Cart, Orders, Reviews...: cac bang khac cua he thong
+
+Bang Email_Verifications co cac cot:
+- id
+- email
+- otp
+- expiredAt
+- createdAt
+
+Bang Users co cac cot quan trong:
+- id
+- email
+- passwordHash
+- fullName
+- phone
+- address
+- avatarUrl
+- status
+- roleId
+- createdAt
+- updatedAt
+
+7) CODE FILE MAP - BACKEND
+--------------------------
+Cac file backend lien quan true tiep den auth:
+
+- project/server/src/integrations/email.js
+  Chuc nang: cau hinh Nodemailer va gui email OTP
+
+- project/server/src/utils/otp.js
+  Chuc nang: tao OTP 6 so, tinh han OTP, kiem tra OTP
+
+- project/server/src/validations/otp.schema.js
+  Chuc nang: validate du lieu send-otp, register, forgot-password, reset-password
+
+- project/server/src/services/otp.service.js
+  Chuc nang: xu ly logic gui OTP, dang ky, quen mat khau, reset mat khau
+
+- project/server/src/controllers/otp.controller.js
+  Chuc nang: nhan request tu frontend, validate, tra JSON response
+
+- project/server/src/routes/otp.routes.js
+  Chuc nang: dinh nghia cac API OTP
+
+- project/server/src/services/auth.service.js
+  Chuc nang: xu ly login, register, getCurrentUser
+
+- project/server/src/controllers/auth.controller.js
+  Chuc nang: controller cho login va auth me
+
+- project/server/src/routes/auth.routes.js
+  Chuc nang: route login, register, me
+
+- project/server/src/middlewares/auth.middleware.js
+  Chuc nang: kiem tra JWT Bearer token
+
+- project/server/src/utils/token.js
+  Chuc nang: tao va verify JWT
+
+- project/server/src/controllers/user.controller.js
+  Chuc nang: cap nhat profile, doi mat khau
+
+- project/server/src/services/user.service.js
+  Chuc nang: logic update profile va change password
+
+- project/server/src/routes/user.routes.js
+  Chuc nang: route cho profile ca nhan
+
+- project/server/prisma/schema.prisma
+  Chuc nang: khai bao schema MySQL, bao gom Users va Email_Verifications
+
+- project/server/server.js
+  Chuc nang: mount routes va khoi dong server
+
+8) CODE FILE MAP - FRONTEND
+---------------------------
+Cac file frontend lien quan true tiep den auth:
+
+- project/client/src/services/otp.api.js
+  Chuc nang: goi API send-otp, register, forgot-password, reset-password
+
+- project/client/src/services/auth.api.js
+  Chuc nang: goi API login va register cu
+
+- project/client/src/services/user.api.js
+  Chuc nang: goi API profile va doi mat khau
+
+- project/client/src/context/AuthContext.jsx
+  Chuc nang: luu token, user, login, logout, refresh profile
+
+- project/client/src/hooks/useAuth.js
+  Chuc nang: hook su dung AuthContext
+
+- project/client/src/pages/Login.jsx
+  Chuc nang: giao dien dang nhap
+
+- project/client/src/pages/Register.jsx
+  Chuc nang: giao dien dang ky 2 buoc voi OTP, fullName, phone, address
+
+- project/client/src/pages/ForgotPassword.jsx
+  Chuc nang: giao dien quen mat khau 2 buoc voi OTP va reset password
+
+- project/client/src/pages/Profile.jsx
+  Chuc nang: cap nhat thong tin ca nhan va doi mat khau
+
+- project/client/src/App.jsx
+  Chuc nang: khai bao route login, register, forgot-password, profile
+
+- project/client/src/main.jsx
+  Chuc nang: bo AuthProvider vao ung dung
+
+9) API ENDPOINTS TOM TAT
+------------------------
+Dang nhap:
+- POST /api/auth/login
+- GET /api/auth/me
+
+Dang ky co OTP:
+- POST /api/otp/send-otp
+- POST /api/otp/register
+
+Quen mat khau:
+- POST /api/otp/forgot-password
+- POST /api/otp/reset-password
+
+Profile:
+- GET /api/users/me
+- PUT /api/users/me
+- PUT /api/users/me/password
+
+10) LUA CHON THIET KE LUONG DANG KY
+-----------------------------------
+Project nay dung mo hinh 2 buoc de dam bao:
+- Email hop le
+- Nguoi dung thuc su so huu email
+- Giam spam tao tai khoan ao
+- Co the dung cho reset mat khau sau nay
+
+Ly do tach thanh 2 buoc:
+- Buoc 1: gui va xac thuc email
+- Buoc 2: nhap thong tin ca nhan + mat khau
+
+11) LUU Y KHI TRINH BAY
+----------------------
+Khi giai thich voi giang vien, co the noi ngan gon:
+- Dang nhap dung JWT de duy tri phien
+- Dang ky phai co OTP de xac minh email
+- Quen mat khau cung dung OTP de dam bao an toan
+- Mat khau luon duoc bam bang bcrypt, khong luu plain text
+- OTP co han 5 phut va duoc xoa sau khi su dung
+
+12) LUONG CHAY TONG QUAT
+------------------------
+1. Nguoi dung mo frontend
+2. Chon Login / Register / Forgot Password
+3. Frontend goi API backend
+4. Backend validate du lieu
+5. Backend truy cap MySQL qua Prisma
+6. Neu hop le thi tra JSON success
+7. Frontend hien thong bao va chuyen trang
+
+13) THONG TIN CHAY DU AN
+------------------------
+- Backend: project/server
+- Frontend: project/client
+- Database: MySQL database KLTN
+- Backend port: 3000
+- Frontend port: 5173
+
+14) CAC DIEM CAN NHAN MANH KHI THUYET TRINH
+-------------------------------------------
+- Co OTP de dam bao xac minh email
+- Co reset password an toan
+- Dung architecture tach layer ro rang: route -> controller -> service -> prisma
+- Dung React Context de quan ly auth state
+- Dung JWT de phan quyen va xac thuc
+- Dung bcrypt de bao mat mat khau
+
+END OF FILE
